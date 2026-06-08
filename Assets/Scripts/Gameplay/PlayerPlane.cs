@@ -83,16 +83,19 @@ namespace Plane.Gameplay
             pos.x = Mathf.Clamp(pos.x, -18, 18);
             pos.z = 0;
             transform.position = pos;
+        }
 
-            // =====================
-            // COLLISION
-            // =====================
-            Collider[] hits = Physics.OverlapSphere(transform.position, 2.5f);
-            foreach (Collider hit in hits)
+        // =====================
+        // COLLISION (UPDATE)
+        // =====================
+        private void OnTriggerEnter(Collider hit)
+        {
+            // Cek apakah yang ditabrak adalah Obstacle
+            // Mengecek Tag, atau komponen ObstaclePack di objek tersebut, atau di parent-nya (untuk prefab gabungan)
+            bool isObstacle = hit.CompareTag("Obstacle") || hit.GetComponent<ObstaclePack>() != null || hit.GetComponentInParent<ObstaclePack>() != null;
+
+            if (isObstacle)
             {
-                if (hit.gameObject == gameObject)
-                    continue;
-
                 if (m_ExplodeParticle != null)
                 {
                     GameObject obj = Instantiate(m_ExplodeParticle);
@@ -101,7 +104,6 @@ namespace Plane.Gameplay
 
                 GameControl.m_Current.HandleGameOver();
                 gameObject.SetActive(false);
-                break;
             }
         }
 

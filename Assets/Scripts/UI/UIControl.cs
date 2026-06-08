@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Plane.UI
 {
@@ -10,21 +11,18 @@ namespace Plane.UI
         public static UIControl Current
         { get { return m_Current; } }
 
-
         public GameObject m_LoseUI;
         public GameObject m_WinUI;
         public GameObject m_InGameUI;
 
-
-
         [SerializeField]
         public Camera m_EventCamera;
 
+        public Text m_CoinText; 
 
         void Awake()
         {
             m_Current = this;
-            //m_EventCamera = GameObject.FindGameObjectWithTag("MainCamera").GetComponent<Camera>();
         }
 
         void Start()
@@ -34,15 +32,16 @@ namespace Plane.UI
             {
                 c.worldCamera = m_EventCamera;
             }
-
         }
 
-        // Update is called once per frame
-        void Update()
+        // Tambahkan parameter highScore
+        public void UpdateLoseUI(int totalCoins, int highScore)
         {
-
+            LoseUI loseScript = m_LoseUI.GetComponent<LoseUI>();
+            if (loseScript != null)
+            {
+                loseScript.ShowFinalScore(totalCoins, highScore);
+            }
         }
-
-
     }
 }
