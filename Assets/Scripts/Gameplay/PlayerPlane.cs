@@ -15,12 +15,12 @@ namespace Plane.Gameplay
 
         public static PlayerPlane m_Main;
 
-        [Header("Touch Settings")]
+        [Header("Touch & Mouse Settings")]
         [Tooltip("Area layar yang diabaikan di tepi bawah (untuk UI buttons)")]
         public float m_DeadZoneBottom = 100f;
         [Tooltip("Jarak minimal drag agar input dihitung")]
         public float m_DragThreshold = 10f;
-        [Tooltip("Kecepatan respons terhadap sentuhan (semakin kecil = semakin halus)")]
+        [Tooltip("Kecepatan respons terhadap sentuhan/drag (semakin kecil = semakin halus)")]
         public float m_TouchSensitivity = 1f;
         [Tooltip("Kecepatan kembali ke posisi netral saat tidak disentuh")]
         public float m_ReturnSpeed = 5f;
@@ -32,6 +32,12 @@ namespace Plane.Gameplay
         private bool m_IsTouching = false;
         private Vector2 m_TouchInput = Vector2.zero;
 
+        // Variabel mouse (TAMBAHAN)
+        private bool m_IsMouseDown = false;
+        private Vector2 m_MouseStartPos;
+        private Vector2 m_MouseCurrentPos;
+        private Vector2 m_MouseInput = Vector2.zero;
+
         private void Awake()
         {
             m_Main = this;
@@ -42,9 +48,10 @@ namespace Plane.Gameplay
             float InputX = 0, InputY = 0;
 
             // =====================
-            // TOUCH INPUT
+            // INPUT HANDLING
             // =====================
             HandleTouchInput();
+            HandleMouseInput(); // Panggil fungsi mouse
 
             // =====================
             // KEYBOARD INPUT (fallback)
@@ -59,11 +66,18 @@ namespace Plane.Gameplay
             else if (Input.GetKey(KeyCode.S))
                 InputY = -1;
 
-            // Gabungkan: prioritas touch, jika tidak ada sentuhan pakai keyboard
+            // =====================
+            // PRIORITAS INPUT: Touch > Mouse > Keyboard
+            // =====================
             if (m_IsTouching && m_TouchInput.magnitude > 0.01f)
             {
                 InputX = m_TouchInput.x;
                 InputY = m_TouchInput.y;
+            }
+            else if (m_IsMouseDown && m_MouseInput.magnitude > 0.01f)
+            {
+                InputX = m_MouseInput.x;
+                InputY = m_MouseInput.y;
             }
 
             // =====================
@@ -86,12 +100,10 @@ namespace Plane.Gameplay
         }
 
         // =====================
-        // COLLISION (UPDATE)
+        // COLLISION
         // =====================
         private void OnTriggerEnter(Collider hit)
         {
-            // Cek apakah yang ditabrak adalah Obstacle
-            // Mengecek Tag, atau komponen ObstaclePack di objek tersebut, atau di parent-nya (untuk prefab gabungan)
             bool isObstacle = hit.CompareTag("Obstacle") || hit.GetComponent<ObstaclePack>() != null || hit.GetComponentInParent<ObstaclePack>() != null;
 
             if (isObstacle)
@@ -107,23 +119,20 @@ namespace Plane.Gameplay
             }
         }
 
+        // =====================
+        // TOUCH INPUT LOGIC
+        // =====================
         private void HandleTouchInput()
         {
-            // Cek apakah ada touch aktif
             if (Input.touchCount > 0)
             {
                 foreach (Touch touch in Input.touches)
                 {
-                    // ========================
-                    // TOUCH BEGAN - mulai sentuh
-                    // ========================
                     if (touch.phase == TouchPhase.Began)
                     {
-                        // Abaikan area dead zone di bawah layar (untuk tombol UI)
                         if (touch.position.y < m_DeadZoneBottom)
                             continue;
 
-                        // Simpan finger ID yang sedang dilacak
                         if (m_TrackedFingerId == -1)
                         {
                             m_TrackedFingerId = touch.fingerId;
@@ -133,41 +142,29 @@ namespace Plane.Gameplay
                         }
                     }
 
-                    // Hanya proses finger yang sedang dilacak
                     if (touch.fingerId != m_TrackedFingerId)
                         continue;
 
-                    // ========================
-                    // TOUCH MOVED - sedang drag
-                    // ========================
                     if (touch.phase == TouchPhase.Moved || touch.phase == TouchPhase.Stationary)
                     {
                         m_TouchCurrentPos = touch.position;
-
-                        // Hitung delta dari posisi awal sentuh
                         Vector2 delta = m_TouchCurrentPos - m_TouchStartPos;
 
-                        // Abaikan jika drag terlalu kecil
                         if (delta.magnitude < m_DragThreshold)
                         {
                             m_TouchInput = Vector2.zero;
                             return;
                         }
 
-                        // Normalisasi delta berdasarkan ukuran layar
                         float normalizedX = (delta.x / (Screen.width * 0.5f)) * m_TouchSensitivity;
                         float normalizedY = (delta.y / (Screen.height * 0.5f)) * m_TouchSensitivity;
 
-                        // Clamp antara -1 dan 1
                         m_TouchInput = new Vector2(
                             Mathf.Clamp(normalizedX, -1f, 1f),
                             Mathf.Clamp(normalizedY, -1f, 1f)
                         );
                     }
 
-                    // ========================
-                    // TOUCH ENDED / CANCELED - jari diangkat
-                    // ========================
                     if (touch.phase == TouchPhase.Ended || touch.phase == TouchPhase.Canceled)
                     {
                         if (touch.fingerId == m_TrackedFingerId)
@@ -179,7 +176,6 @@ namespace Plane.Gameplay
             }
             else
             {
-                // Tidak ada sentuhan sama sekali
                 ResetTouch();
             }
         }
@@ -189,6 +185,60 @@ namespace Plane.Gameplay
             m_TrackedFingerId = -1;
             m_IsTouching = false;
             m_TouchInput = Vector2.zero;
+        }
+
+        // =====================
+        // MOUSE INPUT LOGIC (TAMBAHAN)
+        // =====================
+        private void HandleMouseInput()
+        {
+            // Jika sedang ada sentuhan di layar (mobile), abaikan mouse agar tidak dobel input
+            if (Input.touchCount > 0)
+            {
+                m_IsMouseDown = false;
+                m_MouseInput = Vector2.zero;
+                return;
+            }
+
+            // Saat klik kiri ditekan (Mouse Down)
+            if (Input.GetMouseButtonDown(0))
+            {
+                // Cek dead zone bawah untuk UI
+                if (Input.mousePosition.y < m_DeadZoneBottom)
+                    return;
+
+                m_IsMouseDown = true;
+                m_MouseStartPos = Input.mousePosition;
+                m_MouseCurrentPos = Input.mousePosition;
+            }
+
+            // Saat klik kiri ditahan dan digeser (Mouse Drag)
+            if (Input.GetMouseButton(0) && m_IsMouseDown)
+            {
+                m_MouseCurrentPos = Input.mousePosition;
+                Vector2 delta = m_MouseCurrentPos - m_MouseStartPos;
+
+                if (delta.magnitude < m_DragThreshold)
+                {
+                    m_MouseInput = Vector2.zero;
+                    return;
+                }
+
+                float normalizedX = (delta.x / (Screen.width * 0.5f)) * m_TouchSensitivity;
+                float normalizedY = (delta.y / (Screen.height * 0.5f)) * m_TouchSensitivity;
+
+                m_MouseInput = new Vector2(
+                    Mathf.Clamp(normalizedX, -1f, 1f),
+                    Mathf.Clamp(normalizedY, -1f, 1f)
+                );
+            }
+
+            // Saat klik kiri dilepas (Mouse Up)
+            if (Input.GetMouseButtonUp(0))
+            {
+                m_IsMouseDown = false;
+                m_MouseInput = Vector2.zero;
+            }
         }
     }
 }

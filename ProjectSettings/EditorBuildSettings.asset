@@ -6,6 +6,9 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
+    path: Assets/Assets Kelompok/Pak Wildan/Scene/SplashScreen.unity
+    guid: b45f6ab310e61a3469b9ac9ad66efb0e
+  - enabled: 1
     path: Assets/Assets Kelompok/Pak Wildan/Scene/MainMenu.unity
     guid: df3cbd22400aba34687e1184bc2070a2
   - enabled: 1
