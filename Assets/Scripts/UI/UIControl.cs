@@ -19,6 +19,13 @@ namespace Plane.UI
         public Camera m_EventCamera;
 
         public Text m_CoinText; 
+        public Text m_CountdownText;
+
+        // === TAMBAHAN UI PAUSE ===
+        [Header("Pause UI")]
+        public GameObject m_PauseButton; // Tombol pause di layar game
+        public GameObject m_PausePanel;  // Panel yang muncul saat di-pause
+        // ==========================
 
         void Awake()
         {
@@ -34,7 +41,6 @@ namespace Plane.UI
             }
         }
 
-        // Tambahkan parameter highScore
         public void UpdateLoseUI(int totalCoins, int highScore)
         {
             LoseUI loseScript = m_LoseUI.GetComponent<LoseUI>();

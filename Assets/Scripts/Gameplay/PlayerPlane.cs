@@ -22,8 +22,6 @@ namespace Plane.Gameplay
         public float m_DragThreshold = 10f;
         [Tooltip("Kecepatan respons terhadap sentuhan/drag (semakin kecil = semakin halus)")]
         public float m_TouchSensitivity = 1f;
-        [Tooltip("Kecepatan kembali ke posisi netral saat tidak disentuh")]
-        public float m_ReturnSpeed = 5f;
 
         // Variabel touch
         private int m_TrackedFingerId = -1;
@@ -32,11 +30,16 @@ namespace Plane.Gameplay
         private bool m_IsTouching = false;
         private Vector2 m_TouchInput = Vector2.zero;
 
-        // Variabel mouse (TAMBAHAN)
+        // Variabel mouse
         private bool m_IsMouseDown = false;
         private Vector2 m_MouseStartPos;
         private Vector2 m_MouseCurrentPos;
         private Vector2 m_MouseInput = Vector2.zero;
+
+        [Header("Sound Settings")]
+        [Tooltip("Suara yang dimainkan saat pesawat menabrak rintangan")]
+        public AudioClip m_CrashSound;
+        public float m_CrashSoundVolume = 1f;
 
         private void Awake()
         {
@@ -45,25 +48,40 @@ namespace Plane.Gameplay
 
         void Update()
         {
+            // ==========================================
+            // CEK STATE GAME (PAUSE & COUNTDOWN)
+            // Jika game di-pause (timeScale = 0) atau sedang hitungan mundur awal, 
+            // pemain tidak bisa bergerak dan input diabaikan.
+            // ==========================================
+            if (Time.timeScale == 0f || 
+               (GameControl.m_Current != null && GameControl.m_Current.m_GameState == GameControl.State_Start))
+            {
+                // Reset semua input agar tidak ada gerakan tersisa saat resume/start
+                ResetTouch();
+                m_IsMouseDown = false;
+                m_MouseInput = Vector2.zero;
+                return; 
+            }
+
             float InputX = 0, InputY = 0;
 
             // =====================
             // INPUT HANDLING
             // =====================
             HandleTouchInput();
-            HandleMouseInput(); // Panggil fungsi mouse
+            HandleMouseInput();
 
             // =====================
             // KEYBOARD INPUT (fallback)
             // =====================
-            if (Input.GetKey(KeyCode.A))
+            if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow))
                 InputX = -1;
-            else if (Input.GetKey(KeyCode.D))
+            else if (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow))
                 InputX = 1;
 
-            if (Input.GetKey(KeyCode.W))
+            if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow))
                 InputY = 1;
-            else if (Input.GetKey(KeyCode.S))
+            else if (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow))
                 InputY = -1;
 
             // =====================
@@ -92,6 +110,7 @@ namespace Plane.Gameplay
 
             transform.position += movement;
 
+            // Batasan area terbang
             Vector3 pos = transform.position;
             pos.y = Mathf.Clamp(pos.y, 8, 30);
             pos.x = Mathf.Clamp(pos.x, -18, 18);
@@ -104,10 +123,17 @@ namespace Plane.Gameplay
         // =====================
         private void OnTriggerEnter(Collider hit)
         {
+            // Cek apakah yang ditabrak adalah Obstacle
             bool isObstacle = hit.CompareTag("Obstacle") || hit.GetComponent<ObstaclePack>() != null || hit.GetComponentInParent<ObstaclePack>() != null;
 
             if (isObstacle)
             {
+                // Mainkan suara tabrakan sebelum pesawat di-nonaktifkan
+                if (m_CrashSound != null)
+                {
+                    AudioSource.PlayClipAtPoint(m_CrashSound, transform.position, m_CrashSoundVolume);
+                }
+
                 if (m_ExplodeParticle != null)
                 {
                     GameObject obj = Instantiate(m_ExplodeParticle);
@@ -188,11 +214,11 @@ namespace Plane.Gameplay
         }
 
         // =====================
-        // MOUSE INPUT LOGIC (TAMBAHAN)
+        // MOUSE INPUT LOGIC
         // =====================
         private void HandleMouseInput()
         {
-            // Jika sedang ada sentuhan di layar (mobile), abaikan mouse agar tidak dobel input
+            // Jika sedang ada sentuhan di layar (mobile), abaikan mouse
             if (Input.touchCount > 0)
             {
                 m_IsMouseDown = false;
@@ -203,7 +229,6 @@ namespace Plane.Gameplay
             // Saat klik kiri ditekan (Mouse Down)
             if (Input.GetMouseButtonDown(0))
             {
-                // Cek dead zone bawah untuk UI
                 if (Input.mousePosition.y < m_DeadZoneBottom)
                     return;
 
